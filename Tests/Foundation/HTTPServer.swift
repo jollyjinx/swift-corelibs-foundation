@@ -704,6 +704,10 @@ public class TestURLSessionServer: CustomStringConvertible {
             try handleWebSocketRequest(req)
         } else if req.uri.hasPrefix("/accept-encoding") {
             try httpServer.respondWithAcceptEncoding(request: req)
+        } else if req.uri == "/close-without-response" {
+            // Simulate a server that closes the connection without sending any HTTP response.
+            try httpServer.tcpSocket.closeSocket()
+            return
         } else {
             let response = try getResponse(request: req)
             try httpServer.respond(with: response)

@@ -635,6 +635,32 @@ final class TestURLSession: LoopbackServerTest, @unchecked Sendable {
         waitForExpectations(timeout: 30)
     }
 
+    func test_serverClosesConnectionWithoutResponse() async {
+        // Test for the scenario where a server closes the TCP connection (sends FIN,ACK)
+        // without sending any HTTP response headers.
+        let config = URLSessionConfiguration.default
+        let urlString = "http://127.0.0.1:\(TestURLSession.serverPort)/close-without-response"
+        let session = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
+        let expect = expectation(description: "GET \(urlString): server closes without response")
+        let req = URLRequest(url: URL(string: urlString)!)
+        let task = session.dataTask(with: req) { (data, response, error) -> Void in
+            defer { expect.fulfill() }
+            // Should receive an error, not crash with fatalError
+            XCTAssertNotNil(error, "Expected an error when server closes without response")
+            if let urlError = error as? URLError {
+                // The error should be NSURLErrorNetworkConnectionLost
+                XCTAssertEqual(urlError._nsError.code, NSURLErrorNetworkConnectionLost,
+                               "Expected NSURLErrorNetworkConnectionLost, got \(urlError._nsError.code)")
+            } else {
+                XCTFail("Expected URLError, got \(type(of: error))")
+            }
+            XCTAssertNil(response, "Should not have a response when server closes without sending one")
+            XCTAssertNil(data, "Should not have data when server closes without sending response")
+        }
+        task.resume()
+        waitForExpectations(timeout: 30)
+    }
+
     func test_connectTimeout() async throws {
         throw XCTSkip("This test is disabled (flaky when all tests are run together)")
         #if false
